@@ -23,6 +23,7 @@ from pathlib import Path
 from tracewarden.env.example_tasks import TASKS
 from tracewarden.env.mock_llm import BenignAgent, GullibleAgent, VLLMAgent
 from tracewarden.env.tasks import TaskEnv, load_tasks, run_episode, to_trajectory
+from tracewarden.env.variants import build_variants
 
 
 def agent_factories(kind: str, args):
@@ -44,6 +45,11 @@ def agent_factories(kind: str, args):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks", default=None, help="tasks jsonl; default uses the built-in example tasks")
+    ap.add_argument("--variants", action="store_true",
+                    help="use the variant generator (base repos x vectors x phrasings) instead of the 17 example tasks")
+    ap.add_argument("--phrasings-per-goal", type=int, default=2, help="variant generator: phrasings per goal")
+    ap.add_argument("--max-per-repo", type=int, default=0, help="variant generator: cap attacked variants per repo (0=all)")
+    ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--agent", choices=["benign", "gullible", "both", "vllm"], default="both")
     ap.add_argument("--model", default="mock")
     ap.add_argument("--base-url", default="http://localhost:8000/v1")
@@ -52,12 +58,19 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    specs = load_tasks(args.tasks) if args.tasks else TASKS
+    if args.tasks:
+        specs = load_tasks(args.tasks)
+    elif args.variants:
+        specs = build_variants(seed=args.seed, phrasings_per_goal=args.phrasings_per_goal,
+                               max_per_repo=args.max_per_repo)
+    else:
+        specs = TASKS
     factories = agent_factories(args.agent, args)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     n = 0
+    cats: dict[str, int] = {}
     with out_path.open("w", encoding="utf-8") as f:
         for spec in specs:
             for model_name, make_agent in factories:
@@ -67,10 +80,13 @@ def main() -> None:
                 if args.tool_parser:
                     traj.meta["tool_parser"] = args.tool_parser
                 f.write(traj.to_json() + "\n")
+                f.flush()  # survive a Kaggle restart mid-run
                 n += 1
+                cats[traj.category] = cats.get(traj.category, 0) + 1
                 print(f"{spec.task_id} [{model_name}] steps={len(traj.steps)} "
                       f"labels={traj.label_string} category={traj.category}")
     print(f"\n[INFO] wrote {n} trajectories to {out_path}")
+    print(f"[INFO] by category: {dict(sorted(cats.items()))}")
 
 
 if __name__ == "__main__":
