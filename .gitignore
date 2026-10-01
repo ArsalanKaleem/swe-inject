@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# generated artifacts (regenerable; keep code, not outputs)
+data/swe_inject/*.jsonl
+!data/swe_inject/smoke.jsonl
+runs/
+*.pt
+*.onnx
+vllm_server.log
+
+# local/editor
+.vscode/
+.idea/
+.DS_Store

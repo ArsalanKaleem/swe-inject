@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swe-inject"
+version = "0.1.0"
+description = "A step-labeled benchmark and guard for indirect prompt injection against software-engineering agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+# the guard/model stack and real evaluation need torch + the sentence encoder
+guard = ["torch>=2.1", "sentence-transformers>=2.2", "onnxruntime>=1.16"]
+# trajectory generation against a served model
+generate = ["openai>=1.0"]
+dev = ["pytest>=7", "ruff>=0.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
