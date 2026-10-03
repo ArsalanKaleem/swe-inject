@@ -132,11 +132,22 @@ class VLLMAgent:
     fenced JSON blob. Pass tool_parser='gemma4' for Gemma, else the client's native calls.
     """
 
+    # Qwen2.5-CODER does NOT use the hermes <tool_call> format: with --tool-call-parser hermes
+    # the server leaves tool_calls empty and the call lands in content as a ```json``` block,
+    # a <tools>...</tools> block, or bare JSON (documented vLLM limitation). Gemma4 uses its own
+    # <|tool_call> markers. This fallback recovers all of those, tolerates single-quote (Python
+    # literal) arguments, and returns ALL calls in the message, not just the first.
     _GEMMA = re.compile(r"<\|tool_call>\s*call:(\w+)\{(.*?)\}<tool_call\|>", re.S)
-    _XML = re.compile(r"<(?:tool_call|function_call)>\s*(\{.*?\})\s*</(?:tool_call|function_call)>", re.S)
-    _FENCE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.S)
+    _TAGS = [
+        re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.S),
+        re.compile(r"<tools>\s*(\{.*?\})\s*</tools>", re.S),
+        re.compile(r"<function_call>\s*(\{.*?\})\s*</function_call>", re.S),
+        re.compile(r"```(?:json|tool_code)?\s*(\{.*?\})\s*```", re.S),
+    ]
+    # bare JSON object that has a "name" key (last resort, unfenced)
+    _BARE = re.compile(r"(\{[^{}]*\"name\"[^{}]*\{.*?\}[^{}]*\}|\{[^{}]*\"name\"[^{}]*\})", re.S)
 
-    def __init__(self, client, model: str, temperature: float = 0.0, max_tokens: int = 1024):
+    def __init__(self, client, model: str, temperature: float = 0.0, max_tokens: int = 1536):
         self.client = client
         self.model = model
         self.temperature = temperature
@@ -149,30 +160,55 @@ class VLLMAgent:
         msg = r.choices[0].message
         out = []
         for tc in (msg.tool_calls or []):
-            args = tc.function.arguments
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    args = {"_raw": args}
-            out.append({"name": tc.function.name, "arguments": args, "thought": msg.content or ""})
+            out.append({"name": tc.function.name, "arguments": _loads(tc.function.arguments),
+                        "thought": msg.content or ""})
         if out:
             return out
         return self._from_content(msg.content or "")
 
     def _from_content(self, content: str) -> list[dict]:
-        m = self._GEMMA.search(content)
-        if m:
-            return [{"name": m.group(1), "arguments": _gemma_args(m.group(2)), "thought": ""}]
-        for rx in (self._XML, self._FENCE):
-            m = rx.search(content)
-            if m:
-                try:
-                    d = json.loads(m.group(1))
-                    return [{"name": d.get("name"), "arguments": d.get("arguments", {}), "thought": ""}]
-                except json.JSONDecodeError:
-                    pass
-        return []
+        if not content:
+            return []
+        g = self._GEMMA.search(content)
+        if g:
+            return [{"name": g.group(1), "arguments": _gemma_args(g.group(2)), "thought": ""}]
+        # collect every JSON blob any tag style yields, preserving order of appearance
+        blobs: list[tuple[int, str]] = []
+        for rx in self._TAGS:
+            for mm in rx.finditer(content):
+                blobs.append((mm.start(), mm.group(1)))
+        if not blobs:
+            for mm in self._BARE.finditer(content):
+                blobs.append((mm.start(), mm.group(1)))
+        calls = []
+        for _pos, blob in sorted(blobs, key=lambda b: b[0]):
+            d = _loads(blob)
+            name = d.get("name") or d.get("tool") or d.get("function")
+            if not name:
+                continue
+            args = d.get("arguments", d.get("parameters", d.get("args", {})))
+            calls.append({"name": name, "arguments": args if isinstance(args, dict) else _loads(args),
+                          "thought": ""})
+        return calls
+
+
+def _loads(s):
+    """Tolerant JSON load: accepts dicts as-is, strict JSON, then Python-literal (single-quote,
+    True/False/None) arguments that Qwen-Coder sometimes emits. Returns {} on total failure."""
+    import ast
+    if isinstance(s, dict):
+        return s
+    if not isinstance(s, str) or not s.strip():
+        return {}
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    try:
+        v = ast.literal_eval(s)
+        return v if isinstance(v, dict) else {"value": v}
+    except (ValueError, SyntaxError):
+        return {"_raw": s}
 
 
 def _gemma_args(body: str) -> dict:

@@ -128,3 +128,26 @@ def test_every_attacked_task_has_a_target():
     for t in TASKS:
         if t.goal_kind != "none":
             assert t.goal_target, f"{t.task_id} has no goal_target"
+
+
+# ------------------------------------------------------------------ Qwen-Coder tool-call parsing (regression)
+# Qwen2.5-Coder + hermes leaves tool_calls empty and the call leaks into content in several
+# formats. The fallback must recover all of them, or episodes die at 1 step.
+
+def test_vllm_fallback_parses_all_formats():
+    from tracewarden.env.mock_llm import VLLMAgent
+    a = VLLMAgent.__new__(VLLMAgent)
+    fenced = '```json\n{"name": "read_file", "arguments": {"path": "src/app.py"}}\n```'
+    assert a._from_content(fenced)[0]["name"] == "read_file"
+    tag = '<tool_call>{"name": "run_tests", "arguments": {"test_name": "t"}}</tool_call>'
+    assert a._from_content(tag)[0]["name"] == "run_tests"
+    tools = '<tools>{"name": "edit_file", "arguments": {"path": "a", "content": "x"}}</tools>'
+    assert a._from_content(tools)[0]["arguments"]["path"] == "a"
+    singles = "```json\n{'name': 'read_file', 'arguments': {'path': 'R.md'}}\n```"
+    assert a._from_content(singles)[0]["arguments"]["path"] == "R.md"
+    params = '<tool_call>{"name": "search", "parameters": {"query": "q"}}</tool_call>'
+    assert a._from_content(params)[0]["arguments"]["query"] == "q"
+    two = ('```json\n{"name": "read_file", "arguments": {"path": "a"}}\n```\n'
+           '```json\n{"name": "run_tests", "arguments": {}}\n```')
+    assert [c["name"] for c in a._from_content(two)] == ["read_file", "run_tests"]
+    assert a._from_content("just prose, no call") == []

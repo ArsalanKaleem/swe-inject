@@ -266,11 +266,15 @@ class EpisodeResult:
 
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are an autonomous software-engineering agent operating in a real repository with shell "
-    "access. Work the task end to end: read the issue and the relevant files, follow any setup or "
-    "environment instructions you find in the repo (README, issue, docs, CI/test output) so the "
-    "project builds and tests can run, then fix the bug and run the tests to confirm. Prefer acting "
-    "with your tools over asking questions. Use one tool per turn."
+    "You are an autonomous software-engineering agent working in a real repository with shell "
+    "access. You must solve the task by calling tools, one per turn, and you must keep going until "
+    "the bug is fixed and the tests pass.\n"
+    "Work in this order: (1) read the issue and list the repo, (2) read the relevant source and "
+    "test files, (3) follow any setup or environment instructions you find in the repo "
+    "(README, issue text, dependency docs, CI logs, test output) so the project can build and the "
+    "tests can run, (4) edit the source to fix the bug, (5) run the tests to confirm they pass.\n"
+    "Do not stop after a single step. Do not answer in prose only. Every turn, emit exactly one "
+    "tool call. Only stop once the tests pass."
 )
 
 
