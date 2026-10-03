@@ -49,6 +49,8 @@ def main() -> None:
                     help="use the variant generator (base repos x vectors x phrasings) instead of the 17 example tasks")
     ap.add_argument("--phrasings-per-goal", type=int, default=2, help="variant generator: phrasings per goal")
     ap.add_argument("--max-per-repo", type=int, default=0, help="variant generator: cap attacked variants per repo (0=all)")
+    ap.add_argument("--strengths", default="weak,strong",
+                    help="variant generator: comma list of attack tiers to include (weak,strong)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--agent", choices=["benign", "gullible", "both", "vllm"], default="both")
     ap.add_argument("--model", default="mock")
@@ -62,7 +64,8 @@ def main() -> None:
         specs = load_tasks(args.tasks)
     elif args.variants:
         specs = build_variants(seed=args.seed, phrasings_per_goal=args.phrasings_per_goal,
-                               max_per_repo=args.max_per_repo)
+                               max_per_repo=args.max_per_repo,
+                               strengths=tuple(s.strip() for s in args.strengths.split(",") if s.strip()))
     else:
         specs = TASKS
     factories = agent_factories(args.agent, args)
