@@ -127,7 +127,9 @@ def main() -> None:
     pos = [float(pr[i]) for g, pr in zip(gold_steps, hijack_probs) for i in range(len(g)) if g[i] == H]
     neg = [float(pr[i]) for g, pr in zip(gold_steps, hijack_probs) for i in range(len(g)) if g[i] != H]
     rep = full_report(gold_steps, pred_steps, y_true, y_pred, categories,
-                      hijack_probs=hijack_probs, threshold=args.threshold)
+                      hijack_probs=[(pp == H).astype(float) for pp in pred_steps], threshold=0.5)
+    # prevent/* now reflects the guard's actual hold/block decisions (including any taint policy);
+    # the threshold-free view of the raw scores is reported separately under scores/*.
     lat_arr = np.array(all_lat)
     rep["latency/mean_ms"] = float(lat_arr.mean())
     rep["latency/median_ms"] = float(np.median(lat_arr))
@@ -145,10 +147,11 @@ def main() -> None:
         rep[f"scores/threshold_at_{int(f*100)}pct_fpr"] = thr
     if args.scores_out:
         with open(args.scores_out, "w", encoding="utf-8") as fo:
-            for t, g, pr in zip(trajs, gold_steps, hijack_probs):
+            for t, g, pr, pd in zip(trajs, gold_steps, hijack_probs, pred_steps):
                 for i in range(len(g)):
                     fo.write(json.dumps({"id": t.id, "step": i, "tool": t.steps[i].tool,
-                                         "hijacked": bool(g[i] == H), "score": float(pr[i])}) + "\n")
+                                         "hijacked": bool(g[i] == H), "flagged": bool(pd[i] == H),
+                                         "score": float(pr[i])}) + "\n")
         print(f"[INFO] wrote per-step scores to {args.scores_out}")
 
     print(format_report(rep))
