@@ -258,3 +258,15 @@ The core benchmark and tests only need `numpy` and `pytest`; the real model/guar
 ## License
 
 This project is licensed under the Apache 2.0 license.
+
+## Analysis scripts
+
+All run on a laptop, no GPU.
+
+    python scripts/relabel_goal_only.py <run>.jsonl            # goal-only labels -> <run>.goalonly.jsonl
+    python scripts/analyze_runs.py --run 7B=<a> --run 14B=<b> --run 32B=<c>
+    python scripts/audit_runs.py <file> --check-missed         # automatic missed-injection check
+    python scripts/audit_runs.py <file> --sample 30 --seed 1 --all-steps   # manual label audit
+    python scripts/eval_swe_inject.py --checkpoint runs/sg.pt --trajectories <file> --out <json> --scores-out <jsonl>
+
+See `docs/FINDINGS.md` for the current results.
