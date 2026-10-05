@@ -19,3 +19,11 @@ vllm_server.log
 .vscode/
 .idea/
 .DS_Store
+
+# raw downloads, run logs and pilot outputs (kept on Hugging Face, not in git)
+data/hf_raw/
+data/final/
+results/*.log
+results/smoke_real.jsonl
+results/swe_inject_*.jsonl
+results/scripts/
