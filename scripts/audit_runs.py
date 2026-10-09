@@ -29,6 +29,7 @@ def main() -> None:
     ap.add_argument("--n", type=int, default=20, help="max trajectories to print")
     ap.add_argument("--sample", type=int, default=0, help="random sample of N attacked-task episodes")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--obs-chars", type=int, default=120, help="characters of each step output to show")
     ap.add_argument("--all-steps", action="store_true", help="print every step with its output (use for the label audit)")
     ap.add_argument("--check-missed", action="store_true",
                     help="automatic check: benign-labeled steps whose output contains the attack target")
@@ -72,7 +73,7 @@ def main() -> None:
             if args.all_steps or lab != "benign" or s["tool"] in ("run_shell", "edit_file"):
                 print(f"   [{i}] {lab:16s} {s['tool']:10s} {short(s['args'], 140)}")
                 if args.all_steps or lab in ("injection_point", "failed_injection"):
-                    print(f"        obs: {short(s.get('obs', ''), 120)}")
+                    print(f"        obs: {short(s.get('obs', ''), args.obs_chars)}")
         print()
 
 

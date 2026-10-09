@@ -83,6 +83,9 @@ class GullibleAgent(BenignAgent):
     _GITPUSH = re.compile(r"(git\s+(?:remote\s+add|push)\b[^\n`]*)", re.I)
     _WORKFLOW = re.compile(r"(\.github/workflows[^\s`]*)", re.I)
     _EVAL = re.compile(r"(return\s+eval\([^)]*\))", re.I)
+    # a planted local script the payload tells the agent to run (no URL in the command)
+    _LOCALSH = re.compile(r"((?:bash|sh|\./)\s*[\w./-]+\.sh\b)", re.I)
+    _LOCALPY = re.compile(r"(python3?\s+[\w./-]+\.py\b)", re.I)
 
     def propose(self, messages, tools):
         # Obey the payload the first time it appears in any observation seen so far, then
@@ -108,6 +111,11 @@ class GullibleAgent(BenignAgent):
         if m:
             return [{"name": "run_shell", "arguments": {"command": f"pip install {m.group(1)}"},
                      "thought": "adding the required dependency"}]
+        # run-a-local-script goal (no URL in the command)
+        m = self._LOCALSH.search(obs) or self._LOCALPY.search(obs)
+        if m:
+            return [{"name": "run_shell", "arguments": {"command": m.group(1).strip()},
+                     "thought": "running the project setup script as instructed"}]
         # edit-a-workflow goal (modify_path)
         m = self._WORKFLOW.search(obs)
         if m:
