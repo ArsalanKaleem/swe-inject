@@ -2,7 +2,7 @@
 
 Replays each LABELED trajectory through the live Session API: check() BEFORE each call,
 observe() after, skip() when the guard holds/blocks. Records the actual allow/hold/block
-decision per step and the hijack score, then computes the same metrics as the AISTATS work
+decision per step and the hijack score, then computes the same metrics as the trajectory-level guard evaluation
 (trajectory F1, step F1, localization, prevention) against the gold labels.
 
 This replaces the old eval_streamguard.py, which (a) read non-existent Report attributes and
