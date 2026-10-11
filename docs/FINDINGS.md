@@ -100,3 +100,7 @@ python tools/preflight.py). The hijack command contains a local path, no URL.
 - Learned guard still ~chance (AUROC 0.53 / 0.58).
 - Strong framing beat weak this run (14B 16% vs 4%, 32B 29% vs 13%); no such effect on the main data.
 - Caveat: 0 of 18 URL-free hijacks caught, but small counts (8 and 10 per model).
+
+## URL-free vector label audit
+Author-verified, 30 trajectories per model (24 run_local_script each + 6 other goals): 30/30 (14B)
+and 30/30 (32B) correct. Independent rule-based consistency check: 0/60 flagged.
