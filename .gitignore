@@ -27,3 +27,6 @@ results/*.log
 results/smoke_real.jsonl
 results/swe_inject_*.jsonl
 results/scripts/
+
+release/
+*.zip
